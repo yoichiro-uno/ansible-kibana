@@ -1,0 +1,53 @@
+- name: Install elasticsearch GPG Key
+  rpm_key:
+    state: present
+    key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+- name: Add Repository
+  yum_repository:
+    name: "kibana-6.x"
+    description: "Kibana repository for 6.x packages"
+    baseurl: https://artifacts.elastic.co/packages/6.x/yum
+    gpgkey: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    gpgcheck: yes
+    enabled: yes
+
+- name: upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+
+- name: Install kibana
+  yum:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - kibana
+
+- name: Accept access from all
+  lineinfile:
+    path: "/etc/kibana/kibana.yml"
+    state: present
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - {regexp: '^#server.host:', line: 'server.host: "0.0.0.0"'}
+    - {regexp: '^#elasticsearch.url:', line: 'elasticsearch.url: "{{ elasticsearch_url }}"'}
+    - {regexp: '^#logging.dest:', line: 'logging.dest: "/var/log/kibana/kibana.log"'}
+
+- name: Getting ready for Log 
+  file:
+    path: "{{ item.logpath }}"
+    state: "{{ item.logstate }}"
+    owner: kibana
+    group: kibana
+    mode: 0777
+  with_items:
+    - {logpath: "/var/log/kibana", logstate: "directory" }
+    - {logpath: "/var/log/kibana/kibana.log", logstate: "touch" }
+
+- name: Start elastic search
+  systemd:
+    name: kibana
+    state: started
+    enabled: yes

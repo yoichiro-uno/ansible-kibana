@@ -1,0 +1,13 @@
+- name: Configure to use behind proxy
+  lineinfile:
+    path: "/etc/kibana/kibana.yml"
+    state: present
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - {regexp: '^#server.basePath:', line: 'server.basePath: "/kibana"'}
+
+- name: Restart elastic search to read new config
+  systemd:
+    name: kibana
+    state: started

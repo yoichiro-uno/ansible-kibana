@@ -7,7 +7,7 @@
   with_items:
     - {regexp: '^#server.basePath:', line: 'server.basePath: "/kibana"'}
 
-- name: Restart elastic search to read new config
+- name: Restart kibana to read new config
   systemd:
     name: kibana
-    state: started
+    state: restarted

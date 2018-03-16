@@ -1,0 +1,6 @@
+---
+- name: Configure to use from Proxy
+  hosts: all
+  become: yes
+  roles:
+    - config_behind_proxy

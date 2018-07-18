@@ -1,0 +1,121 @@
+---
+- name: add group "kibana"
+  group: 
+    name: kibana
+
+- name: add user "kibana"
+  user: 
+    name: kibana
+    group: kibana
+
+- name: make kibana dir
+  file:
+    path: /opt/kibana
+    state: directory
+    owner: kibana
+    group: kibana
+    mode: 0777
+
+
+- name: Run the equivalent of "apt-get update" as a separate step
+  apt:
+    update_cache: yes
+
+- name: Install dependencies
+  apt:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - nodejs
+    - npm
+#    - oracle-java8-jdk
+
+- name: Update npm
+  npm:
+    name: "{{ item }}"
+    executable: "/usr/bin/npm"
+    global: yes
+    state: latest
+  with_items:
+    - npm
+    - n
+
+- name: use latest npm
+  shell: /bin/bash -lc "n stable"
+
+- name: Check file exsistence
+  stat: 
+    path: /opt/kibana/kibana-6.3.0-linux-x86_64/config/kibana.yml
+  register: _kibana
+
+- name: Download Kibana
+  unarchive:
+    src: "{{ kibana_URL }}/{{ kibana_filename}}"
+    dest: /opt/kibana/
+    remote_src: yes
+  when: not _kibana.stat.exists
+
+#- name: rename dir
+#  shell: /bin/bash -lc "cp -aRp /etc/kibana-6.3.0-linux-x86_64/* /etc/kibana/"
+
+- name: make s-link
+  file:
+    src: /opt/kibana/kibana-6.3.0-linux-x86_64
+    dest: /opt/kibana/current
+    state: link
+    owner: kibana
+    group: kibana
+    mode: 0777
+
+- name: change path for nodejs files
+  file:
+    path: "{{ item.filepath }}"
+    state: "{{ item.filestate }}"
+    owner: kibana
+    group: kibana
+    mode: 0777
+  with_items:
+    - {filepath: "/opt/kibana/current/node/bin/node", filestate: "absent",}
+    - {filepath: "/opt/kibana/current/node/bin/npm", filestate: "absent",}
+
+- name: change path for nodejs files
+  file:
+    src: "{{ item.filepath }}"
+    dest: "{{ item.dest }}"
+    state: "{{ item.filestate }}"
+    owner: kibana
+    group: kibana
+    mode: 0777
+  with_items:
+    - {filepath: "/usr/local/bin/node", dest: "/opt/kibana/current/node/bin/node", filestate: "link",}
+    - {filepath: "/usr/local/bin/npm", dest: "/opt/kibana/current/node/bin/npm", filestate: "link",}
+
+- name: Accept access from all
+  lineinfile:
+    path: "/opt/kibana/current/config/kibana.yml"
+    state: present
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - {regexp: '^#server.host:', line: 'server.host: "0.0.0.0"'}
+    - {regexp: '^#elasticsearch.url:', line: 'elasticsearch.url: "{{ elasticsearch_url }}"'}
+    - {regexp: '^#logging.dest:', line: 'logging.dest: "/var/log/kibana/kibana.log"'}
+
+- name: Getting ready for Log 
+  file:
+    path: "{{ item.logpath }}"
+    state: "{{ item.logstate }}"
+    owner: kibana
+    group: kibana
+    mode: 0777
+  with_items:
+    - {logpath: "/var/log/kibana", logstate: "directory" }
+    - {logpath: "/var/log/kibana/kibana.log", logstate: "touch" }
+
+
+- name: Start kibana search
+#  systemd:
+#    name: kibana
+#    state: started
+#    enabled: yes
+  shell: /bin/bash -lc "/opt/kibana/current/bin/kibana &"
